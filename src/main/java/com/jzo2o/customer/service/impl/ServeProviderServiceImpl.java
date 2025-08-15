@@ -273,4 +273,44 @@ public class ServeProviderServiceImpl extends ServiceImpl<ServeProviderMapper, S
         ServeProvider serveProvider = baseMapper.selectById(UserContext.currentUserId());
         return BeanUtils.toBean(serveProvider,ServeProviderInfoResDTO.class);
     }
+
+    /**
+     * 机构注册
+     *
+     * @param institutionRegisterReqDTO 机构注册请求参数
+     */
+    @Override
+    public void institutionRegister(InstitutionRegisterReqDTO institutionRegisterReqDTO) {
+        // 1.验证验证码是否匹配
+        boolean verifyResult = smsCodeApi.verify(institutionRegisterReqDTO.getPhone(), SmsBussinessTypeEnum.INSTITION_REGISTER, institutionRegisterReqDTO.getVerifyCode()).getIsSuccess();
+        if (!verifyResult) {
+            throw new BadRequestException("短信验证码校验失败");
+        }
+        // 2.新增机构
+        owner.add(institutionRegisterReqDTO.getPhone(), UserType.INSTITUTION, passwordEncoder.encode(institutionRegisterReqDTO.getPassword()));
+
+    }
+
+    /**
+     * 机构重置密码
+     * @param institutionResetPasswordReqDTO
+     */
+    public void institutionResetPassword(InstitutionResetPasswordReqDTO institutionResetPasswordReqDTO) {
+        // 1.验证验证码是否匹配
+        boolean verifyResult = smsCodeApi.verify(institutionResetPasswordReqDTO.getPhone(), SmsBussinessTypeEnum.INSTITUTION_RESET_PASSWORD, institutionResetPasswordReqDTO.getVerifyCode()).getIsSuccess();
+        if (!verifyResult) {
+            throw new BadRequestException("短信验证码校验失败");
+        }
+        // 校验手机号是否存在
+        ServeProvider one = lambdaQuery().eq(ServeProvider::getPhone, institutionResetPasswordReqDTO.getPhone()).one();
+        if (one == null) {
+            throw new BadRequestException("该账号不存在");
+        }
+        // 2.更新机构密码
+       lambdaUpdate()
+               .eq(ServeProvider::getId, one.getId())
+               .set(ServeProvider::getPassword, passwordEncoder.encode(institutionResetPasswordReqDTO.getPassword()))
+               .update();
+
+    }
 }
